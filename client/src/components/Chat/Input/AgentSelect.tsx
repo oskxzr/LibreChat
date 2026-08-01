@@ -1,28 +1,51 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import { Bot, Check, X } from "lucide-react";
+import { EModelEndpoint } from "librechat-data-provider";
+import { useAgentsMapContext, useChatContext } from "~/Providers";
+import useSelectMention from "~/hooks/Input/useSelectMention";
 import {
 	DropdownMenu,
 	DropdownMenuTrigger,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
-} from "@librechat/client";
-import { useGetAgentsQuery } from "~/data-provider";
-import { useSetAgent } from "~/hooks/Agents/useSetAgent";
-import { useChatContext } from "~/Providers";
+} from "~/components/ui";
 
 export function AgentSelect() {
-	const { conversation } = useChatContext();
-	const { data: agentsResponse } = useGetAgentsQuery();
-	const { setAgent } = useSetAgent();
+	const { conversation, newConversation } = useChatContext();
+	const agentsMap = useAgentsMapContext();
 
-	const agents = agentsResponse?.data ?? [];
+	const { onSelectEndpoint } = useSelectMention({
+		newConversation,
+		returnHandlers: true,
+	});
+
+	// Convert agentsMap object into an array of accessible agents
+	const agents = useMemo(() => Object.values(agentsMap ?? {}), [agentsMap]);
 	const currentAgentId = conversation?.agent_id;
 
+	// Get currently selected agent
 	const selectedAgent = useMemo(() => {
-		if (!currentAgentId) return null;
-		return agents.find((a) => a.id === currentAgentId) ?? null;
-	}, [agents, currentAgentId]);
+		if (!currentAgentId || !agentsMap) return null;
+		return agentsMap[currentAgentId] ?? null;
+	}, [agentsMap, currentAgentId]);
+
+	const handleSelectAgent = useCallback(
+		(agentId: string) => {
+			const agent = agentsMap?.[agentId];
+			onSelectEndpoint?.(EModelEndpoint.agents, {
+				agent_id: agentId,
+				model: agent?.model ?? "",
+			});
+		},
+		[agentsMap, onSelectEndpoint],
+	);
+
+	const handleDeselectAgent = useCallback(() => {
+		// Revert back to standard custom/raw endpoint (e.g. Groq/DeepSeek)
+		const fallbackEndpoint = conversation?.endpointType ?? EModelEndpoint.custom;
+		onSelectEndpoint?.(fallbackEndpoint);
+	}, [conversation?.endpointType, onSelectEndpoint]);
 
 	if (!agents || agents.length === 0) {
 		return null;
@@ -63,11 +86,10 @@ export function AgentSelect() {
 			</DropdownMenuTrigger>
 
 			<DropdownMenuContent align="start" className="w-52 max-h-60 overflow-y-auto">
-				{/* Option to clear active agent and return to raw model */}
 				{selectedAgent && (
 					<>
 						<DropdownMenuItem
-							onClick={() => setAgent(null)}
+							onClick={handleDeselectAgent}
 							className="flex items-center gap-2 cursor-pointer text-sm text-red-500 hover:text-red-600 focus:text-red-600"
 						>
 							<X className="h-4 w-4" />
@@ -82,7 +104,7 @@ export function AgentSelect() {
 					return (
 						<DropdownMenuItem
 							key={agent.id}
-							onClick={() => setAgent(agent.id)}
+							onClick={() => handleSelectAgent(agent.id)}
 							className="flex items-center justify-between cursor-pointer text-sm"
 						>
 							<div className="flex items-center gap-2 truncate">
