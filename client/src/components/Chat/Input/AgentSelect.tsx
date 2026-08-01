@@ -1,15 +1,15 @@
 import React, { useMemo, useCallback } from "react";
 import { Bot, Check, X } from "lucide-react";
 import { EModelEndpoint } from "librechat-data-provider";
-import { useAgentsMapContext, useChatContext } from "~/Providers";
-import useSelectMention from "~/hooks/Input/useSelectMention";
 import {
 	DropdownMenu,
 	DropdownMenuTrigger,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
-} from "~/components/ui/DropdownMenu"; // <--- Added /DropdownMenu to direct path
+} from "@librechat/client";
+import { useAgentsMapContext, useChatContext } from "~/Providers";
+import useSelectMention from "~/hooks/Input/useSelectMention";
 
 export function AgentSelect() {
 	const { conversation, newConversation } = useChatContext();
