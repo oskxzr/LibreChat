@@ -9,7 +9,7 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
-} from "~/components/ui";
+} from "~/components/ui/DropdownMenu"; // <--- Added /DropdownMenu to direct path
 
 export function AgentSelect() {
 	const { conversation, newConversation } = useChatContext();
@@ -20,11 +20,9 @@ export function AgentSelect() {
 		returnHandlers: true,
 	});
 
-	// Convert agentsMap object into an array of accessible agents
 	const agents = useMemo(() => Object.values(agentsMap ?? {}), [agentsMap]);
 	const currentAgentId = conversation?.agent_id;
 
-	// Get currently selected agent
 	const selectedAgent = useMemo(() => {
 		if (!currentAgentId || !agentsMap) return null;
 		return agentsMap[currentAgentId] ?? null;
@@ -42,7 +40,6 @@ export function AgentSelect() {
 	);
 
 	const handleDeselectAgent = useCallback(() => {
-		// Revert back to standard custom/raw endpoint (e.g. Groq/DeepSeek)
 		const fallbackEndpoint = conversation?.endpointType ?? EModelEndpoint.custom;
 		onSelectEndpoint?.(fallbackEndpoint);
 	}, [conversation?.endpointType, onSelectEndpoint]);
