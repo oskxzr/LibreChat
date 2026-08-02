@@ -1,147 +1,123 @@
-import React, { useMemo } from 'react';
-import { TooltipAnchor } from '@librechat/client';
-import { getConfigDefaults } from 'librechat-data-provider';
-import type { ModelSelectorProps } from '~/common';
+import React, { useMemo, useCallback } from "react";
+import { Bot, Check, X } from "lucide-react";
+import { EModelEndpoint } from "librechat-data-provider";
 import {
-  renderModelSpecs,
-  renderEndpoints,
-  renderSearchResults,
-  renderCustomGroups,
-} from './components';
-import { ModelSelectorProvider, useModelSelectorContext } from './ModelSelectorContext';
-import { useShortcutAriaKey, useShortcutHint } from '~/hooks/useKeyboardShortcuts';
-import { ModelSelectorChatProvider } from './ModelSelectorChatContext';
-import { getSelectedIcon, getDisplayValue } from './utils';
-import { CustomMenu as Menu } from './CustomMenu';
-import DialogManager from './DialogManager';
-import { useLocalize } from '~/hooks';
+	DropdownMenu,
+	DropdownMenuTrigger,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+} from "@librechat/client";
+import { useAgentsMapContext, useChatContext } from "~/Providers";
+import { useGetEndpointsQuery } from "~/data-provider";
+import useSelectMention from "~/hooks/Input/useSelectMention";
 
-const defaultInterface = getConfigDefaults().interface;
+export function AgentSelect() {
+	const { conversation, newConversation, getConversation } = useChatContext();
+	const agentsMap = useAgentsMapContext();
+	const { data: endpointsConfig } = useGetEndpointsQuery();
 
-function ModelSelectorContent() {
-  const localize = useLocalize();
-  const modelSelectorHint = useShortcutHint('openModelSelector', localize('com_ui_select_model'));
-  const modelSelectorAriaKey = useShortcutAriaKey('openModelSelector');
+	// Fixes TypeError by passing all required context dependencies into useSelectMention
+	const { onSelectEndpoint } = useSelectMention({
+		getConversation,
+		newConversation,
+		endpointsConfig,
+		returnHandlers: true,
+	});
 
-  const {
-    // LibreChat
-    agentsMap,
-    modelSpecs,
-    mappedEndpoints,
-    endpointsConfig,
-    // State
-    searchValue,
-    searchResults,
-    selectedValues,
-    // Functions
-    setSearchValue,
-    setSelectedValues,
-    // Dialog
-    keyDialogOpen,
-    onOpenChange,
-    keyDialogEndpoint,
-  } = useModelSelectorContext();
+	const agents = useMemo(() => Object.values(agentsMap ?? {}), [agentsMap]);
+	const currentAgentId = conversation?.agent_id;
 
-  const selectedIcon = useMemo(
-    () =>
-      getSelectedIcon({
-        mappedEndpoints: mappedEndpoints ?? [],
-        selectedValues,
-        modelSpecs,
-        endpointsConfig,
-      }),
-    [mappedEndpoints, selectedValues, modelSpecs, endpointsConfig],
-  );
-  const selectedDisplayValue = useMemo(
-    () =>
-      getDisplayValue({
-        localize,
-        agentsMap,
-        modelSpecs,
-        selectedValues,
-        mappedEndpoints,
-      }),
-    [localize, agentsMap, modelSpecs, selectedValues, mappedEndpoints],
-  );
+	const selectedAgent = useMemo(() => {
+		if (!currentAgentId || !agentsMap) return null;
+		return agentsMap[currentAgentId] ?? null;
+	}, [agentsMap, currentAgentId]);
 
-  const trigger = (
-    <TooltipAnchor
-      aria-label={localize('com_ui_select_model')}
-      description={modelSelectorHint}
-      render={
-        <button
-          data-testid="model-selector-button"
-          aria-keyshortcuts={modelSelectorAriaKey}
-          className="my-1 flex h-9 w-full max-w-[70vw] items-center justify-center gap-2 rounded-xl border border-border-light bg-presentation px-3 py-2 text-sm text-text-primary hover:bg-surface-active-alt"
-          aria-label={localize('com_ui_select_model')}
-        >
-          {selectedIcon && React.isValidElement(selectedIcon) && (
-            <div className="flex flex-shrink-0 items-center justify-center overflow-hidden">
-              {selectedIcon}
-            </div>
-          )}
-          <span className="flex-grow truncate text-left">{selectedDisplayValue}</span>
-        </button>
-      }
-    />
-  );
+	const handleSelectAgent = useCallback(
+		(agentId: string) => {
+			const agent = agentsMap?.[agentId];
+			onSelectEndpoint?.(EModelEndpoint.agents, {
+				agent_id: agentId,
+				model: agent?.model ?? "",
+			});
+		},
+		[agentsMap, onSelectEndpoint],
+	);
 
-  return (
-    <div className="relative flex w-full max-w-md flex-col items-center gap-2">
-      <Menu
-        values={selectedValues}
-        onValuesChange={(values: Record<string, any>) => {
-          setSelectedValues({
-            endpoint: values.endpoint || '',
-            model: values.model || '',
-            modelSpec: values.modelSpec || '',
-          });
-        }}
-        onSearch={(value) => setSearchValue(value)}
-        combobox={<input id="model-search" placeholder=" " />}
-        comboboxLabel={localize('com_endpoint_search_models')}
-        trigger={trigger}
-      >
-        {searchResults ? (
-          renderSearchResults(searchResults, localize, searchValue)
-        ) : (
-          <>
-            {/* Render ungrouped modelSpecs (no group field) */}
-            {renderModelSpecs(
-              modelSpecs?.filter((spec) => !spec.group) || [],
-              selectedValues.modelSpec || '',
-            )}
-            {/* Render endpoints (will include grouped specs matching endpoint names) */}
-            {renderEndpoints(mappedEndpoints ?? [])}
-            {/* Render custom groups (specs with group field not matching any endpoint) */}
-            {renderCustomGroups(modelSpecs || [], mappedEndpoints ?? [])}
-          </>
-        )}
-      </Menu>
-      <DialogManager
-        keyDialogOpen={keyDialogOpen}
-        onOpenChange={onOpenChange}
-        endpointsConfig={endpointsConfig || {}}
-        keyDialogEndpoint={keyDialogEndpoint || undefined}
-      />
-    </div>
-  );
-}
+	const handleDeselectAgent = useCallback(() => {
+		const fallbackEndpoint = conversation?.endpointType ?? EModelEndpoint.custom;
+		onSelectEndpoint?.(fallbackEndpoint);
+	}, [conversation?.endpointType, onSelectEndpoint]);
 
-export default function ModelSelector({ startupConfig }: ModelSelectorProps) {
-  const interfaceConfig = startupConfig?.interface ?? defaultInterface;
-  const modelSpecs = startupConfig?.modelSpecs?.list ?? [];
+	if (!agents || agents.length === 0) {
+		return null;
+	}
 
-  // Hide the selector when modelSelect is false and there are no model specs to show
-  if (interfaceConfig.modelSelect === false && modelSpecs.length === 0) {
-    return null;
-  }
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					aria-label="Select Agent"
+					className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors ${
+						selectedAgent
+							? "border-primary/50 bg-primary/10 text-primary font-semibold"
+							: "border-border-light bg-transparent text-text-primary hover:bg-surface-hover font-medium"
+					}`}
+				>
+					{selectedAgent ? (
+						<>
+							{selectedAgent.avatar?.filepath ? (
+								<img
+									src={selectedAgent.avatar.filepath}
+									alt={selectedAgent.name}
+									className="h-3.5 w-3.5 rounded-full object-cover"
+								/>
+							) : (
+								<Bot className="h-3.5 w-3.5 text-primary" />
+							)}
+							<span className="max-w-[110px] truncate">{selectedAgent.name}</span>
+						</>
+					) : (
+						<>
+							<Bot className="h-3.5 w-3.5 text-text-secondary" />
+							<span>Agents</span>
+						</>
+					)}
+				</button>
+			</DropdownMenuTrigger>
 
-  return (
-    <ModelSelectorChatProvider>
-      <ModelSelectorProvider startupConfig={startupConfig}>
-        <ModelSelectorContent />
-      </ModelSelectorProvider>
-    </ModelSelectorChatProvider>
-  );
+			<DropdownMenuContent
+				align="start"
+				className="w-56 rounded-xl border border-border-light bg-surface-chat-alt p-1.5 shadow-lg text-text-primary z-50"
+			>
+				{agents.map((agent) => {
+					const isSelected = agent.id === currentAgentId;
+					return (
+						<DropdownMenuItem
+							key={agent.id}
+							onClick={() => handleSelectAgent(agent.id)}
+							className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-primary hover:bg-surface-hover cursor-pointer transition-colors"
+						>
+							<div className="flex items-center gap-2 truncate">
+								{agent.avatar?.filepath ? (
+									<img
+										src={agent.avatar.filepath}
+										alt={agent.name}
+										className="h-3.5 w-3.5 rounded-full object-cover"
+									/>
+								) : (
+									<Bot className="h-3.5 w-3.5 text-text-tertiary" />
+								)}
+								<span className="truncate">{agent.name || "Unnamed Agent"}</span>
+							</div>
+							{isSelected && (
+								<Check className="h-3.5 w-3.5 text-primary ml-2 flex-shrink-0" />
+							)}
+						</DropdownMenuItem>
+					);
+				})}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
 }
