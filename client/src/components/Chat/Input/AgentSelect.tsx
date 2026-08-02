@@ -6,17 +6,21 @@ import {
 	DropdownMenuTrigger,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuSeparator,
 } from "@librechat/client";
 import { useAgentsMapContext, useChatContext } from "~/Providers";
+import { useGetEndpointsQuery } from "~/data-provider";
 import useSelectMention from "~/hooks/Input/useSelectMention";
 
 export function AgentSelect() {
-	const { conversation, newConversation } = useChatContext();
+	const { conversation, newConversation, getConversation } = useChatContext();
 	const agentsMap = useAgentsMapContext();
+	const { data: endpointsConfig } = useGetEndpointsQuery();
 
+	// Fixes TypeError by passing all required context dependencies into useSelectMention
 	const { onSelectEndpoint } = useSelectMention({
+		getConversation,
 		newConversation,
+		endpointsConfig,
 		returnHandlers: true,
 	});
 
@@ -54,7 +58,7 @@ export function AgentSelect() {
 				<button
 					type="button"
 					aria-label="Select Agent"
-					className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors ${
+					className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors ${
 						selectedAgent
 							? "border-primary/50 bg-primary/10 text-primary font-semibold"
 							: "border-border-light bg-transparent text-text-primary hover:bg-surface-hover font-medium"
@@ -66,58 +70,48 @@ export function AgentSelect() {
 								<img
 									src={selectedAgent.avatar.filepath}
 									alt={selectedAgent.name}
-									className="h-4 w-4 rounded-full object-cover"
+									className="h-3.5 w-3.5 rounded-full object-cover"
 								/>
 							) : (
-								<Bot className="h-4 w-4 text-primary" />
+								<Bot className="h-3.5 w-3.5 text-primary" />
 							)}
-							<span className="max-w-[120px] truncate">{selectedAgent.name}</span>
+							<span className="max-w-[110px] truncate">{selectedAgent.name}</span>
 						</>
 					) : (
 						<>
-							<Bot className="h-4 w-4 text-text-secondary" />
+							<Bot className="h-3.5 w-3.5 text-text-secondary" />
 							<span>Agents</span>
 						</>
 					)}
 				</button>
 			</DropdownMenuTrigger>
 
-			<DropdownMenuContent align="start" className="w-52 max-h-60 overflow-y-auto">
-				{selectedAgent && (
-					<>
-						<DropdownMenuItem
-							onClick={handleDeselectAgent}
-							className="flex items-center gap-2 cursor-pointer text-sm text-red-500 hover:text-red-600 focus:text-red-600"
-						>
-							<X className="h-4 w-4" />
-							<span>Deselect Agent</span>
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-					</>
-				)}
-
+			<DropdownMenuContent
+				align="start"
+				className="w-56 rounded-xl border border-border-light bg-surface-chat-alt p-1.5 shadow-lg text-text-primary z-50"
+			>
 				{agents.map((agent) => {
 					const isSelected = agent.id === currentAgentId;
 					return (
 						<DropdownMenuItem
 							key={agent.id}
 							onClick={() => handleSelectAgent(agent.id)}
-							className="flex items-center justify-between cursor-pointer text-sm"
+							className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-primary hover:bg-surface-hover cursor-pointer transition-colors"
 						>
 							<div className="flex items-center gap-2 truncate">
 								{agent.avatar?.filepath ? (
 									<img
 										src={agent.avatar.filepath}
 										alt={agent.name}
-										className="h-4 w-4 rounded-full object-cover"
+										className="h-3.5 w-3.5 rounded-full object-cover"
 									/>
 								) : (
-									<Bot className="h-4 w-4 text-text-tertiary" />
+									<Bot className="h-3.5 w-3.5 text-text-tertiary" />
 								)}
 								<span className="truncate">{agent.name || "Unnamed Agent"}</span>
 							</div>
 							{isSelected && (
-								<Check className="h-4 w-4 text-primary ml-2 flex-shrink-0" />
+								<Check className="h-3.5 w-3.5 text-primary ml-2 flex-shrink-0" />
 							)}
 						</DropdownMenuItem>
 					);
