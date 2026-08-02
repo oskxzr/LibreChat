@@ -16,17 +16,23 @@ import { useGetEndpointsQuery, useGetStartupConfig } from "~/data-provider";
 import useSelectMention from "~/hooks/Input/useSelectMention";
 
 export function AgentSelect() {
-	const { conversation, newConversation, getConversation } = useChatContext();
+	// 1. Removed getConversation from here (it doesn't exist in useChatContext)
+	const { conversation, newConversation } = useChatContext();
 	const agentsMap = useAgentsMapContext();
 
 	const assistantsMap = useAssistantsMapContext();
 	const { data: endpointsConfig } = useGetEndpointsQuery();
 	const { data: startupConfig } = useGetStartupConfig();
 
+	const getConversation = useCallback(
+		() => conversation ?? null,
+		[conversation],
+	);
+
 	const { onSelectEndpoint } = useSelectMention({
 		getConversation,
 		newConversation,
-		endpointsConfig,
+		endpointsConfig: endpointsConfig || ({} as any),
 		modelSpecs: startupConfig?.modelSpecs?.list ?? [],
 		assistantsMap,
 		returnHandlers: true,
