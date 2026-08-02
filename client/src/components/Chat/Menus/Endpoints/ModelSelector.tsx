@@ -89,9 +89,9 @@ function ModelSelectorContent() {
 							{selectedIcon}
 						</div>
 					)}
-					<span className="flex-grow truncate text-left">
+					{/* <span className="flex-grow truncate text-left">
 						{selectedDisplayValue}
-					</span>
+					</span> */}
 				</button>
 			}
 		/>

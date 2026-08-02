@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from "react";
-import { Bot, Check, X } from "lucide-react";
+import { Bot, Check } from "lucide-react";
 import { EModelEndpoint } from "librechat-data-provider";
 import {
 	DropdownMenu,
@@ -7,20 +7,28 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 } from "@librechat/client";
-import { useAgentsMapContext, useChatContext } from "~/Providers";
-import { useGetEndpointsQuery } from "~/data-provider";
+import {
+	useAgentsMapContext,
+	useChatContext,
+	useAssistantsMapContext,
+} from "~/Providers";
+import { useGetEndpointsQuery, useGetStartupConfig } from "~/data-provider";
 import useSelectMention from "~/hooks/Input/useSelectMention";
 
 export function AgentSelect() {
 	const { conversation, newConversation, getConversation } = useChatContext();
 	const agentsMap = useAgentsMapContext();
-	const { data: endpointsConfig } = useGetEndpointsQuery();
 
-	// Fixes TypeError by passing all required context dependencies into useSelectMention
+	const assistantsMap = useAssistantsMapContext();
+	const { data: endpointsConfig } = useGetEndpointsQuery();
+	const { data: startupConfig } = useGetStartupConfig();
+
 	const { onSelectEndpoint } = useSelectMention({
 		getConversation,
 		newConversation,
 		endpointsConfig,
+		modelSpecs: startupConfig?.modelSpecs?.list ?? [],
+		assistantsMap,
 		returnHandlers: true,
 	});
 
@@ -42,11 +50,6 @@ export function AgentSelect() {
 		},
 		[agentsMap, onSelectEndpoint],
 	);
-
-	const handleDeselectAgent = useCallback(() => {
-		const fallbackEndpoint = conversation?.endpointType ?? EModelEndpoint.custom;
-		onSelectEndpoint?.(fallbackEndpoint);
-	}, [conversation?.endpointType, onSelectEndpoint]);
 
 	if (!agents || agents.length === 0) {
 		return null;
@@ -95,7 +98,7 @@ export function AgentSelect() {
 					return (
 						<DropdownMenuItem
 							key={agent.id}
-							onClick={() => handleSelectAgent(agent.id)}
+							onSelect={() => handleSelectAgent(agent.id)}
 							className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-primary hover:bg-surface-hover cursor-pointer transition-colors"
 						>
 							<div className="flex items-center gap-2 truncate">
